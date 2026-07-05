@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root { color-scheme: light dark; }
+    body {
+      font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0; padding: 18px; background: #1e1e1e; color: #e8e8e8;
+    }
+    h1 { font-size: 15px; margin: 0 0 4px; }
+    h2 { font-size: 13px; margin: 20px 0 8px; color: #9ad; text-transform: uppercase; letter-spacing: .04em; }
+    .sub { color: #999; margin: 0 0 12px; }
+    .card { background: #2a2a2a; border: 1px solid #3a3a3a; border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+    label { display: block; margin: 10px 0 4px; color: #bbb; }
+    input[type=text] {
+      width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid #444; background: #1b1b1b; color: #eee; font-size: 13px;
+    }
+    button {
+      margin: 10px 6px 0 0; padding: 7px 14px; border-radius: 6px; border: 0;
+      background: #2e6db4; color: #fff; font-size: 13px; cursor: pointer;
+    }
+    button.secondary { background: #444; }
+    button:disabled { opacity: .5; cursor: default; }
+    .status { margin-top: 10px; min-height: 18px; }
+    .status.ok { color: #7bd88f; } .status.err { color: #e06c75; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    .badge.on { background: #244c30; color: #7bd88f; } .badge.off { background: #4c2424; color: #e06c75; }
+    ul { list-style: none; margin: 8px 0 0; padding: 0; }
+    li { display: flex; justify-content: space-between; align-items: center;
+         padding: 8px 10px; border: 1px solid #3a3a3a; border-radius: 6px; margin-bottom: 6px; }
+    li .meta { color: #999; font-size: 11px; }
+    .hidden { display: none; }
+    a { color: #6ab0ff; }
+  </style>
+</head>
+<body>
+  <h1>MyAnimeList Sync</h1>
+  <p class="sub">Status: <span id="loginBadge" class="badge off">not logged in</span></p>
+
+  <div class="card" id="authCard">
+    <h2>Account</h2>
+    <p class="sub">Create an API app at
+      <a href="https://myanimelist.net/apiconfig" target="_blank">myanimelist.net/apiconfig</a>
+      and paste its <b>Client ID</b> below.</p>
+
+    <label for="clientId">Client ID</label>
+    <input type="text" id="clientId" placeholder="e.g. 1a2b3c4d5e6f...">
+
+    <label for="redirectUri">Redirect URI <span style="color:#777">(optional — must match your MAL app)</span></label>
+    <input type="text" id="redirectUri" placeholder="leave blank to use your app's registered URI">
+
+    <div>
+      <button id="saveBtn" class="secondary">Save</button>
+      <button id="loginBtn">Log in to MyAnimeList</button>
+      <button id="logoutBtn" class="secondary">Log out</button>
+    </div>
+
+    <label for="code" style="margin-top:16px">Paste redirect URL (or the <code>code</code> value) after approving</label>
+    <input type="text" id="code" placeholder="https://your-redirect/?code=...">
+    <div><button id="submitCodeBtn">Finish login</button></div>
+
+    <div id="authStatus" class="status"></div>
+  </div>
+
+  <div class="card" id="matchCard">
+    <h2>Fix match</h2>
+    <p class="sub">Current file: <b id="currentTitle">—</b></p>
+    <label for="query">Search MyAnimeList</label>
+    <input type="text" id="query" placeholder="anime title">
+    <div><button id="searchBtn" class="secondary">Search</button></div>
+    <ul id="results"></ul>
+    <div id="matchStatus" class="status"></div>
+  </div>
+
+  <script>
+    var $ = function (id) { return document.getElementById(id); };
+
+    function setStatus(el, msg, kind) {
+      el.textContent = msg || "";
+      el.className = "status" + (kind ? " " + kind : "");
+    }
+
+    function renderResults(list) {
+      var ul = $("results");
+      ul.innerHTML = "";
+      (list || []).forEach(function (c) {
+        var li = document.createElement("li");
+        var left = document.createElement("div");
+        left.innerHTML = "<div>" + (c.title || "?") + "</div>" +
+          "<div class='meta'>" + (c.media_type || "") +
+          (c.num_episodes ? " · " + c.num_episodes + " eps" : "") +
+          " · id " + c.id + "</div>";
+        var btn = document.createElement("button");
+        btn.textContent = "Use";
+        btn.onclick = function () {
+          iina.postMessage("choose-match", { malId: c.id });
+          setStatus($("matchStatus"), "Matched to " + c.title + ".", "ok");
+        };
+        li.appendChild(left); li.appendChild(btn);
+        ul.appendChild(li);
+      });
+    }
+
+    // --- inbound messages from the plugin ---
+    iina.onMessage("state", function (s) {
+      $("loginBadge").textContent = s.loggedIn ? "logged in" : "not logged in";
+      $("loginBadge").className = "badge " + (s.loggedIn ? "on" : "off");
+      $("clientId").value = s.clientId || "";
+      $("redirectUri").value = s.redirectUri || "";
+      $("currentTitle").textContent = s.currentTitle || "—";
+      if (s.currentTitle) $("query").value = s.currentTitle;
+      renderResults(s.candidates);
+      // Emphasise the section that was requested, but keep both usable.
+      if (s.mode === "match") { $("matchCard").scrollIntoView(); }
+    });
+    iina.onMessage("candidates", function (d) { renderResults(d.candidates); });
+    iina.onMessage("info",  function (d) { setStatus($("authStatus"), d.message, "ok"); });
+    iina.onMessage("error", function (d) { setStatus($("authStatus"), d.message, "err"); });
+    iina.onMessage("auth-result", function (d) {
+      if (d.ok) setStatus($("authStatus"), "Logged in successfully.", "ok");
+      else setStatus($("authStatus"), "Login failed: " + (d.message || ""), "err");
+    });
+
+    // --- outbound actions ---
+    $("saveBtn").onclick = function () {
+      iina.postMessage("save-config", { clientId: $("clientId").value, redirectUri: $("redirectUri").value });
+    };
+    $("loginBtn").onclick = function () {
+      iina.postMessage("save-config", { clientId: $("clientId").value, redirectUri: $("redirectUri").value });
+      iina.postMessage("start-login", {});
+    };
+    $("logoutBtn").onclick = function () { iina.postMessage("logout", {}); };
+    $("submitCodeBtn").onclick = function () { iina.postMessage("submit-code", { code: $("code").value }); };
+    $("searchBtn").onclick = function () { iina.postMessage("search", { query: $("query").value }); };
+
+    iina.postMessage("panel-ready", {});
+  </script>
+</body>
+</html>

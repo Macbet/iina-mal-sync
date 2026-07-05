@@ -1,0 +1,21 @@
+{
+  "name": "MyAnimeList Sync",
+  "identifier": "com.dkivenko.iina.malsync",
+  "version": "0.1.0",
+  "ghVersion": 1,
+  "author": {
+    "name": "dkivenko",
+    "email": "kivenkodaniil@gmail.com"
+  },
+  "description": "Automatically updates your MyAnimeList watched-episode progress from what you play in IINA.",
+  "entry": "main.js",
+  "preferencesPage": "ui/prefs.html",
+  "permissions": ["network-request", "show-osd", "show-alert"],
+  "allowedDomains": ["myanimelist.net", "api.myanimelist.net"],
+  "preferenceDefaults": {
+    "enabled": true,
+    "threshold": 0.8,
+    "clientId": "",
+    "redirectUri": ""
+  }
+}

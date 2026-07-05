@@ -1,0 +1,9 @@
+# OMC operational state
+.omc/
+.claude/
+
+# macOS
+.DS_Store
+
+# Node (only used for local testing, no deps committed)
+node_modules/

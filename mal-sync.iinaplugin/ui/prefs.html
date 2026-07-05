@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    :root { color-scheme: light dark; }
+    body { font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; padding: 18px; }
+    h2 { font-size: 14px; margin: 0 0 12px; }
+    .row { margin: 14px 0; }
+    label { font-weight: 600; }
+    .hint { color: #888; margin: 4px 0 0; }
+    input[type=range] { width: 220px; vertical-align: middle; }
+    #thVal { font-variant-numeric: tabular-nums; }
+    .note { margin-top: 20px; padding: 12px; border-radius: 8px; background: rgba(127,127,127,.12); }
+  </style>
+</head>
+<body>
+  <h2>MyAnimeList Sync</h2>
+
+  <div class="row">
+    <label><input type="checkbox" id="enabled"> Enable automatic sync</label>
+    <p class="hint">When on, progress is pushed to MyAnimeList once you pass the watch threshold.</p>
+  </div>
+
+  <div class="row">
+    <label for="threshold">Mark watched at: <span id="thVal">80%</span></label><br>
+    <input type="range" id="threshold" min="50" max="95" step="5">
+    <p class="hint">Percentage of the episode you must watch before it counts.</p>
+  </div>
+
+  <div class="note">
+    Log in to MyAnimeList and correct series matches from the player's
+    <b>Plugin</b> menu → <b>MyAnimeList Account…</b> (needs a video open).
+  </div>
+
+  <script>
+    var prefs = window.iina.preferences;
+
+    function load() {
+      var enabled = prefs.get("enabled");
+      document.getElementById("enabled").checked = (enabled === undefined ? true : !!enabled);
+      var th = parseFloat(prefs.get("threshold"));
+      if (isNaN(th)) th = 0.8;
+      var pct = Math.round(th * 100);
+      document.getElementById("threshold").value = pct;
+      document.getElementById("thVal").textContent = pct + "%";
+    }
+
+    document.getElementById("enabled").addEventListener("change", function () {
+      prefs.set("enabled", this.checked); prefs.sync();
+    });
+    document.getElementById("threshold").addEventListener("input", function () {
+      document.getElementById("thVal").textContent = this.value + "%";
+      prefs.set("threshold", parseInt(this.value, 10) / 100); prefs.sync();
+    });
+
+    load();
+  </script>
+</body>
+</html>
