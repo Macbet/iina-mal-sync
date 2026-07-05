@@ -46,10 +46,11 @@ Grant the requested permissions (network access + OSD) when prompted.
 
 ### 3. Log in
 
-1. Open any video in IINA.
-2. Menu bar → **Plugin** → **MyAnimeList Account…**
-3. Paste your **Client ID**, click **Save**, then **Log in to MyAnimeList**.
-4. Approve access in the browser that opens. You'll be redirected to your
+Log in from **Settings → Plugins → MyAnimeList Sync** (the preferences page):
+
+1. Paste your **Client ID** and the **Redirect URI** you registered
+   (e.g. `https://localhost/`), then click **Log in to MyAnimeList**.
+2. Approve access in the browser that opens. You'll be redirected to your
    redirect URL — copy the **full address** (it contains `?code=...`) and paste
    it into the **Paste redirect URL** field, then click **Finish login**.
 

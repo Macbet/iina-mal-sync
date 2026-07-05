@@ -1,9 +1,9 @@
 {
   "name": "MyAnimeList Sync",
   "identifier": "com.dkivenko.iina.malsync",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "ghRepo": "Macbet/iina-mal-sync",
-  "ghVersion": 3,
+  "ghVersion": 4,
   "author": {
     "name": "dkivenko",
     "email": "kivenkodaniil@gmail.com"

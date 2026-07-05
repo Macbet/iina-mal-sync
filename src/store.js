@@ -97,6 +97,21 @@ function clearMatch(key) {
   set("matches", JSON.stringify(m));
 }
 
+// --- preferences-based command channel (Settings page <-> plugin) -----------
+// The standalone-window postMessage bridge proved unreliable, so login is
+// driven through preferences: the Settings page bumps a request id and the
+// plugin polls for it. Preference writes from the Settings page are known to
+// propagate to the plugin (the "enabled" toggle works the same way).
+
+function getNum(key) { const n = parseInt(get(key, 0), 10); return isNaN(n) ? 0 : n; }
+
+function getLoginReqId() { return getNum("loginReqId"); }
+function getCodeReqId()  { return getNum("codeReqId"); }
+function getAuthUrl()    { return String(get("authUrl", "") || ""); }
+function getAuthCode()   { return String(get("authCode", "") || ""); }
+function setAuthStatus(s){ set("authStatus", String(s || "")); }
+function setLoggedInFlag(b){ set("loggedInFlag", !!b); }
+
 module.exports = {
   getClientId, setClientId,
   getRedirectUri, setRedirectUri,
@@ -104,5 +119,6 @@ module.exports = {
   getThreshold,
   getTokens, setTokens, clearTokens, isLoggedIn,
   setPkce, getPkce,
-  getMatch, setMatch, clearMatch
+  getMatch, setMatch, clearMatch,
+  getLoginReqId, getCodeReqId, getAuthUrl, getAuthCode, setAuthStatus, setLoggedInFlag
 };

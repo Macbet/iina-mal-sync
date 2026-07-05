@@ -4,57 +4,155 @@
   <meta charset="utf-8">
   <style>
     :root { color-scheme: light dark; }
-    body { font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; padding: 18px; }
-    h2 { font-size: 14px; margin: 0 0 12px; }
-    .row { margin: 14px 0; }
-    label { font-weight: 600; }
-    .hint { color: #888; margin: 4px 0 0; }
-    input[type=range] { width: 220px; vertical-align: middle; }
-    #thVal { font-variant-numeric: tabular-nums; }
-    .note { margin-top: 20px; padding: 12px; border-radius: 8px; background: rgba(127,127,127,.12); }
+    body { font: 13px/1.5 -apple-system, BlinkMacSystemFont, sans-serif; padding: 18px; max-width: 640px; }
+    h2 { font-size: 15px; margin: 0 0 4px; }
+    h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #8aa; margin: 22px 0 8px; }
+    .row { margin: 12px 0; }
+    label { font-weight: 600; display: block; margin-bottom: 4px; }
+    .hint { color: #888; font-weight: 400; margin: 4px 0 0; }
+    input[type=text] { width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 6px;
+      border: 1px solid #888a; background: #8881; color: inherit; font-size: 13px; }
+    input[readonly] { opacity: .8; }
+    input[type=range] { width: 240px; vertical-align: middle; }
+    button { margin: 10px 8px 0 0; padding: 7px 14px; border-radius: 6px; border: 0;
+      background: #2e6db4; color: #fff; font-size: 13px; cursor: pointer; }
+    button.secondary { background: #8883; color: inherit; }
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+    .badge.on { background: #244c30; color: #7bd88f; } .badge.off { background: #4c2424; color: #e06c75; }
+    .status { margin-top: 10px; min-height: 18px; color: #6ab0ff; }
+    ol { margin: 6px 0; padding-left: 20px; } li { margin: 3px 0; }
+    a { color: #6ab0ff; }
+    .card { border: 1px solid #8883; border-radius: 8px; padding: 14px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
   <h2>MyAnimeList Sync</h2>
+  <div class="row">Account: <span id="badge" class="badge off">not logged in</span></div>
 
+  <h3>Log in</h3>
+  <div class="card">
+    <ol>
+      <li>Create an API app at <a href="https://myanimelist.net/apiconfig" target="_blank">myanimelist.net/apiconfig</a> (App Type: <b>other</b>). Set the redirect URL to <code>https://localhost/</code>.</li>
+      <li>Paste its <b>Client ID</b> and the same redirect URL below, then click <b>Log in</b>.</li>
+      <li>Approve access in the browser. You'll land on a <code>https://localhost/?code=…</code> page (it may look like an error — that's fine). Copy the whole address and paste it below, then <b>Finish login</b>.</li>
+    </ol>
+
+    <div class="row">
+      <label for="clientId">Client ID</label>
+      <input type="text" id="clientId" placeholder="e.g. 1a2b3c4d5e6f...">
+    </div>
+    <div class="row">
+      <label for="redirectUri">Redirect URI</label>
+      <input type="text" id="redirectUri" placeholder="https://localhost/">
+    </div>
+
+    <button id="loginBtn">Log in to MyAnimeList</button>
+    <button id="logoutBtn" class="secondary">Log out</button>
+
+    <div id="urlBox" class="row hidden">
+      <label>If no browser opened, open this link manually:</label>
+      <input type="text" id="authUrl" readonly onclick="this.select()">
+    </div>
+
+    <div class="row">
+      <label for="code">Paste the redirect URL (or code) after approving</label>
+      <input type="text" id="code" placeholder="https://localhost/?code=...">
+    </div>
+    <button id="finishBtn">Finish login</button>
+
+    <div id="status" class="status"></div>
+  </div>
+
+  <h3>Sync</h3>
   <div class="row">
     <label><input type="checkbox" id="enabled"> Enable automatic sync</label>
-    <p class="hint">When on, progress is pushed to MyAnimeList once you pass the watch threshold.</p>
+    <p class="hint">Push progress to MyAnimeList once you pass the watch threshold.</p>
   </div>
-
   <div class="row">
-    <label for="threshold">Mark watched at: <span id="thVal">80%</span></label><br>
+    <label for="threshold">Mark watched at: <span id="thVal">80%</span></label>
     <input type="range" id="threshold" min="50" max="95" step="5">
-    <p class="hint">Percentage of the episode you must watch before it counts.</p>
-  </div>
-
-  <div class="note">
-    Log in to MyAnimeList and correct series matches from the player's
-    <b>Plugin</b> menu → <b>MyAnimeList Account…</b> (needs a video open).
   </div>
 
   <script>
-    var prefs = window.iina.preferences;
+    var P = window.iina.preferences;
+    var $ = function (id) { return document.getElementById(id); };
+    function pget(k, d) { var v = P.get(k); return (v === undefined || v === null) ? d : v; }
+    function pset(k, v) { P.set(k, v); P.sync(); }
 
-    function load() {
-      var enabled = prefs.get("enabled");
-      document.getElementById("enabled").checked = (enabled === undefined ? true : !!enabled);
-      var th = parseFloat(prefs.get("threshold"));
-      if (isNaN(th)) th = 0.8;
-      var pct = Math.round(th * 100);
-      document.getElementById("threshold").value = pct;
-      document.getElementById("thVal").textContent = pct + "%";
+    var VCHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~";
+    function randStr(n) { var s = ""; for (var i = 0; i < n; i++) s += VCHARS[Math.floor(Math.random() * VCHARS.length)]; return s; }
+    function buildAuthUrl(clientId, verifier, state, redirect) {
+      var u = "https://myanimelist.net/v1/oauth2/authorize?response_type=code" +
+        "&client_id=" + encodeURIComponent(clientId) +
+        "&code_challenge=" + encodeURIComponent(verifier) +
+        "&code_challenge_method=plain&state=" + encodeURIComponent(state);
+      if (redirect) u += "&redirect_uri=" + encodeURIComponent(redirect);
+      return u;
     }
 
-    document.getElementById("enabled").addEventListener("change", function () {
-      prefs.set("enabled", this.checked); prefs.sync();
-    });
-    document.getElementById("threshold").addEventListener("input", function () {
-      document.getElementById("thVal").textContent = this.value + "%";
-      prefs.set("threshold", parseInt(this.value, 10) / 100); prefs.sync();
+    // --- settings controls ---
+    function loadSettings() {
+      $("clientId").value = pget("clientId", "");
+      $("redirectUri").value = pget("redirectUri", "") || "https://localhost/";
+      var en = pget("enabled", true); $("enabled").checked = (en === undefined ? true : !!en);
+      var th = parseFloat(pget("threshold", 0.8)); if (isNaN(th)) th = 0.8;
+      $("threshold").value = Math.round(th * 100); $("thVal").textContent = Math.round(th * 100) + "%";
+      refreshBadge();
+    }
+    function refreshBadge() {
+      var on = !!pget("loggedInFlag", false);
+      $("badge").textContent = on ? "logged in" : "not logged in";
+      $("badge").className = "badge " + (on ? "on" : "off");
+    }
+
+    $("enabled").addEventListener("change", function () { pset("enabled", this.checked); });
+    $("threshold").addEventListener("input", function () {
+      $("thVal").textContent = this.value + "%"; pset("threshold", parseInt(this.value, 10) / 100);
     });
 
-    load();
+    // --- login: write config + auth URL, bump loginReqId so the plugin opens the browser ---
+    $("loginBtn").addEventListener("click", function () {
+      var clientId = $("clientId").value.trim();
+      var redirect = $("redirectUri").value.trim();
+      if (!clientId) { $("status").textContent = "Enter your Client ID first."; return; }
+      var verifier = randStr(64), state = randStr(16);
+      var url = buildAuthUrl(clientId, verifier, state, redirect);
+      pset("clientId", clientId);
+      pset("redirectUri", redirect);
+      pset("pkceVerifier", verifier);
+      pset("oauthState", state);
+      pset("authUrl", url);
+      pset("authStatus", "");
+      pset("loginReqId", (parseInt(pget("loginReqId", 0), 10) || 0) + 1);
+      $("authUrl").value = url; $("urlBox").classList.remove("hidden");
+      $("status").textContent = "Opening your browser…";
+    });
+
+    // --- finish: write pasted code, bump codeReqId so the plugin exchanges it ---
+    $("finishBtn").addEventListener("click", function () {
+      var code = $("code").value.trim();
+      if (!code) { $("status").textContent = "Paste the redirect URL (or code) first."; return; }
+      pset("authCode", code);
+      pset("codeReqId", (parseInt(pget("codeReqId", 0), 10) || 0) + 1);
+      $("status").textContent = "Finishing login…";
+    });
+
+    $("logoutBtn").addEventListener("click", function () {
+      pset("accessToken", ""); pset("refreshToken", ""); pset("tokenExpiry", 0);
+      pset("loggedInFlag", false);
+      $("status").textContent = "Logged out.";
+      refreshBadge();
+    });
+
+    // Poll for status/flag updates the plugin writes back.
+    setInterval(function () {
+      var s = pget("authStatus", "");
+      if (s) $("status").textContent = s;
+      refreshBadge();
+    }, 1000);
+
+    loadSettings();
   </script>
 </body>
 </html>

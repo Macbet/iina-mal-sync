@@ -138,6 +138,59 @@ setInterval(function () {
   doSync(false).catch(function (e) { syncedThisFile = false; log("sync threw: " + e.message); });
 }, CHECK_INTERVAL_MS);
 
+// --- login command channel (driven by the Settings page via preferences) ----
+// The Settings page bumps loginReqId / codeReqId; we act on the change here.
+// Initialise to the current values so stale requests from a prior session are
+// not replayed on load.
+let lastLoginReqId = store.getLoginReqId();
+let lastCodeReqId = store.getCodeReqId();
+store.setLoggedInFlag(store.isLoggedIn());
+
+async function processAuthCode() {
+  const clientId = store.getClientId();
+  const pkce = store.getPkce();
+  let code = store.getAuthCode().trim();
+  const m = code.match(/[?&]code=([^&]+)/); // accept a full pasted redirect URL
+  if (m) code = decodeURIComponent(m[1]);
+  if (!clientId) { store.setAuthStatus("Missing Client ID."); return; }
+  if (!code) { store.setAuthStatus("No authorization code found in what you pasted."); return; }
+
+  store.setAuthStatus("Exchanging authorization code…");
+  try {
+    const r = await mal.exchangeCode(clientId, code, pkce.verifier, store.getRedirectUri());
+    store.setTokens(r.access_token, r.refresh_token, r.expires_in);
+    store.setPkce("", "");
+    store.setLoggedInFlag(true);
+    store.setAuthStatus("Logged in successfully. You can close Settings.");
+    osd("logged in to MyAnimeList");
+    log("login succeeded");
+  } catch (e) {
+    store.setAuthStatus("Login failed: " + e.message);
+    log("exchange failed: " + e.message);
+  }
+}
+
+setInterval(function () {
+  const lid = store.getLoginReqId();
+  if (lid !== lastLoginReqId) {
+    lastLoginReqId = lid;
+    const url = store.getAuthUrl();
+    if (url) {
+      let opened = false;
+      try { opened = utils.open(url); } catch (e) { log("utils.open threw: " + e.message); }
+      log("login open opened=" + opened);
+      store.setAuthStatus(opened
+        ? "Browser opened. Approve access, then paste the redirect URL below and click Finish login."
+        : "Could not auto-open a browser. Copy the login link shown below into your browser.");
+    }
+  }
+  const cid = store.getCodeReqId();
+  if (cid !== lastCodeReqId) {
+    lastCodeReqId = cid;
+    processAuthCode();
+  }
+}, 1500);
+
 // --- panel (login + match correction) --------------------------------------
 
 function openPanel(mode) {
