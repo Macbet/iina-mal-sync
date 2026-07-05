@@ -58,8 +58,13 @@
       <button id="logoutBtn" class="secondary">Log out</button>
     </div>
 
+    <div id="authUrlBox" class="hidden" style="margin-top:14px">
+      <label>If no browser opened, copy this link into your browser and approve access:</label>
+      <input type="text" id="authUrl" readonly onclick="this.select()">
+    </div>
+
     <label for="code" style="margin-top:16px">Paste redirect URL (or the <code>code</code> value) after approving</label>
-    <input type="text" id="code" placeholder="https://your-redirect/?code=...">
+    <input type="text" id="code" placeholder="https://localhost/?code=...">
     <div><button id="submitCodeBtn">Finish login</button></div>
 
     <div id="authStatus" class="status"></div>
@@ -119,6 +124,14 @@
     iina.onMessage("candidates", function (d) { renderResults(d.candidates); });
     iina.onMessage("info",  function (d) { setStatus($("authStatus"), d.message, "ok"); });
     iina.onMessage("error", function (d) { setStatus($("authStatus"), d.message, "err"); });
+    iina.onMessage("auth-url", function (d) {
+      $("authUrl").value = d.url;
+      $("authUrlBox").classList.remove("hidden");
+      setStatus($("authStatus"),
+        (d.opened ? "Opening your browser… " : "Could not auto-open a browser. ") +
+        "Approve access, then paste the redirect URL below.",
+        d.opened ? "ok" : "err");
+    });
     iina.onMessage("auth-result", function (d) {
       if (d.ok) setStatus($("authStatus"), "Logged in successfully.", "ok");
       else setStatus($("authStatus"), "Login failed: " + (d.message || ""), "err");
@@ -129,8 +142,11 @@
       iina.postMessage("save-config", { clientId: $("clientId").value, redirectUri: $("redirectUri").value });
     };
     $("loginBtn").onclick = function () {
-      iina.postMessage("save-config", { clientId: $("clientId").value, redirectUri: $("redirectUri").value });
-      iina.postMessage("start-login", {});
+      // Carry the config in the login message itself (no separate-message race).
+      iina.postMessage("start-login", {
+        clientId: $("clientId").value.trim(),
+        redirectUri: $("redirectUri").value.trim()
+      });
     };
     $("logoutBtn").onclick = function () { iina.postMessage("logout", {}); };
     $("submitCodeBtn").onclick = function () { iina.postMessage("submit-code", { code: $("code").value }); };

@@ -166,15 +166,27 @@ standaloneWindow.onMessage("save-config", function (data) {
   standaloneWindow.postMessage("info", { message: "Saved." });
 });
 
-standaloneWindow.onMessage("start-login", function () {
+standaloneWindow.onMessage("start-login", function (data) {
+  // Persist config carried in this message so we never depend on the ordering
+  // of a separate "save-config" message (that race left clientId empty before).
+  if (data && typeof data.clientId === "string") store.setClientId(data.clientId);
+  if (data && typeof data.redirectUri === "string") store.setRedirectUri(data.redirectUri);
+
   const clientId = store.getClientId();
-  if (!clientId) { standaloneWindow.postMessage("error", { message: "Enter your Client ID first." }); return; }
+  if (!clientId) { standaloneWindow.postMessage("error", { message: "Enter your Client ID first, then click Log in." }); return; }
+
   const verifier = mal.generateVerifier(64);
   const state = mal.generateState();
   store.setPkce(verifier, state);
   const url = mal.buildAuthUrl(clientId, verifier, state, store.getRedirectUri());
-  utils.open(url);
-  standaloneWindow.postMessage("info", { message: "Approve access in your browser, then paste the redirect URL (or code) below." });
+
+  let opened = false;
+  try { opened = utils.open(url); } catch (e) { log("utils.open threw: " + e.message); }
+  log("start-login opened=" + opened);
+
+  // Always hand the URL back so the panel can offer a copy/click fallback,
+  // even if the browser did not auto-open.
+  standaloneWindow.postMessage("auth-url", { url: url, opened: opened });
 });
 
 standaloneWindow.onMessage("submit-code", async function (data) {
