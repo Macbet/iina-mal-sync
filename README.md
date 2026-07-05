@@ -32,12 +32,15 @@ final episode).
 
 ### 2. Install the plugin
 
-The plugin lives in the `mal-sync.iinaplugin/` folder.
-
-- **From IINA:** Settings → **Plugins** → **＋** → *Install from file/folder…* and
-  choose `mal-sync.iinaplugin`. (Or drag the folder onto the Plugins list.)
-- **Manually (dev):** symlink or copy the folder into
+- **From GitHub (recommended):** Settings → **Plugins** → **＋** → *Install from
+  GitHub…* and enter `Macbet/iina-mal-sync`.
+- **From a local folder (dev):** clone this repo, then in IINA choose *Install
+  from file/folder…* and select the repo folder (the one containing `Info.json`).
+- **Manually (dev):** symlink or copy the repo folder into
   `~/Library/Application Support/com.colliderli.iina/plugins/` and restart IINA.
+
+> IINA installs GitHub plugins from the **repository root**, so `Info.json` must
+> live at the top level of the repo (it does).
 
 Grant the requested permissions (network access + OSD) when prompted.
 
@@ -82,8 +85,8 @@ Settings → Plugins → MyAnimeList Sync:
 ## Project layout
 
 ```
-mal-sync.iinaplugin/
-├── Info.json          # manifest: entry, permissions, allowed domains, prefs
+.                      # repo root IS the plugin (required for GitHub install)
+├── Info.json          # manifest: entry, ghRepo, permissions, allowed domains, prefs
 ├── main.js            # per-player entry: watch loop, matching, menu, panel wiring
 ├── src/
 │   ├── parse.js       # filename → { title, episode, season }
