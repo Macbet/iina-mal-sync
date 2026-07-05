@@ -239,6 +239,11 @@ standaloneWindow.onMessage("choose-match", function (data) {
 
 // --- menu -------------------------------------------------------------------
 
+// NOTE: never call menu.forceUpdate() during initial plugin evaluation. Plugins
+// load inside IINA's one-time PlayerCore initialization (dispatch_once), and
+// forceUpdate() re-enters that same once token, causing a recursive-lock crash
+// on launch. addItem() is enough to populate the menu; forceUpdate() is only
+// safe from user-triggered callbacks that run long after init.
 function buildMenu() {
   menu.removeAllItems();
   menu.addItem(menu.item("MyAnimeList Account…", function () { openPanel("auth"); }));
@@ -255,8 +260,8 @@ function buildMenu() {
     store.setEnabled(!store.getEnabled());
     osd(store.getEnabled() ? "sync enabled" : "sync disabled");
     buildMenu();
+    menu.forceUpdate(); // safe: user-triggered, well after plugin init
   }, { selected: store.getEnabled() }));
-  menu.forceUpdate();
 }
 
 // --- wiring -----------------------------------------------------------------
